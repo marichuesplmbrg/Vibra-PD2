@@ -22,7 +22,89 @@ const createBlankRows = () =>
     layer: "",
   }));
 
-const LeftPanel = ({ onDeploy, onReset }) => {
+const prettyZone = (zone) => {
+  if (!zone) return "—";
+  const z = String(zone).toLowerCase();
+  if (z.includes("hot")) return "HOTSPOT";
+  if (z.includes("dead")) return "DEADSPOT";
+  return "NEUTRAL";
+};
+
+const formatAppliedTreatments = (applied = [], treatments = []) => {
+  const counts = {};
+  applied.forEach((id) => {
+    counts[id] = (counts[id] || 0) + 1;
+  });
+
+  return Object.entries(counts).map(([id, count]) => {
+    const t = treatments.find((x) => x.id === id);
+    return `${t?.name || id} ×${count}`;
+  });
+};
+
+const intensityFromSeverity = (severity) => {
+  if (severity <= 20) return "LOW";
+  if (severity <= 50) return "MEDIUM";
+  return "HIGH";
+};
+
+const dominantTreatmentName = (applied = [], treatments = [], fallbackName = "") => {
+  if (!applied?.length) return fallbackName || "—";
+  const counts = {};
+  applied.forEach((id) => (counts[id] = (counts[id] || 0) + 1));
+
+  let topId = null;
+  let topCount = -1;
+  Object.entries(counts).forEach(([id, c]) => {
+    if (c > topCount) {
+      topId = id;
+      topCount = c;
+    }
+  });
+
+  const t = treatments.find((x) => x.id === topId);
+  return t?.name || fallbackName || topId || "—";
+};
+
+/* =========================
+   COLOR MATCHING (SAME AS 3D)
+========================= */
+const ZONE_COLORS = {
+  hotspot: "#b22222",
+  deadspot: "#4292c6",
+  neutral: "#2a9d8f",
+};
+
+// blend from -> to by t (0..1)
+const blendColor = (fromHex, toHex, t) => {
+  const f = fromHex.replace("#", "");
+  const e = toHex.replace("#", "");
+
+  const rf = parseInt(f.substring(0, 2), 16);
+  const gf = parseInt(f.substring(2, 4), 16);
+  const bf = parseInt(f.substring(4, 6), 16);
+
+  const rt = parseInt(e.substring(0, 2), 16);
+  const gt = parseInt(e.substring(2, 4), 16);
+  const bt = parseInt(e.substring(4, 6), 16);
+
+  const r = Math.round(rf + (rt - rf) * t);
+  const g = Math.round(gf + (gt - gf) * t);
+  const b = Math.round(bf + (bt - bf) * t);
+
+  return `rgb(${r}, ${g}, ${b})`;
+};
+
+const LeftPanel = ({
+  onDeploy,
+  onReset,
+  treatments = [],
+  selectedPoint,
+  bestTreatment,
+  showAfter,
+  setShowAfter,
+  effectsByKey,
+}) => {
   const [data, setData] = useState(createBlankRows());
   const [filtered, setFiltered] = useState(createBlankRows());
   const [query, setQuery] = useState("");
@@ -47,7 +129,6 @@ const LeftPanel = ({ onDeploy, onReset }) => {
 
       const rows = json.table.rows;
 
-      // ⛔ SKIP HEADER ROW (index 0)
       rows.slice(1).forEach((row) => {
         if (!row.c) return;
 
@@ -90,31 +171,28 @@ const LeftPanel = ({ onDeploy, onReset }) => {
   /* =========================
      SORT
   ========================= */
-  
   const handleSort = (value) => {
     let result = data;
 
     if (value === "HOTSPOT") {
-      result = data.filter((row) =>
-        String(row.classification).toLowerCase().replace(/\s+/g, "") === "hotspot"
+      result = data.filter(
+        (row) =>
+          String(row.classification).toLowerCase().replace(/\s+/g, "") ===
+          "hotspot"
       );
-    }
-
-    else if (value === "DEADSPOT") {
-      result = data.filter((row) =>
-        String(row.classification).toLowerCase().replace(/\s+/g, "") === "deadspot"
+    } else if (value === "DEADSPOT") {
+      result = data.filter(
+        (row) =>
+          String(row.classification).toLowerCase().replace(/\s+/g, "") ===
+          "deadspot"
       );
-    }
-
-    else if (value.startsWith("Layer")) {
+    } else if (value.startsWith("Layer")) {
       result = data.filter((row) => row.layer === value);
     }
 
-    // ALL
     setFiltered(result);
-    onDeploy(result); // ✅ THIS updates the 3D scene immediately
+    onDeploy(result);
   };
-
 
   /* =========================
      RESET
@@ -125,7 +203,6 @@ const LeftPanel = ({ onDeploy, onReset }) => {
     setFiltered(blanks);
     setQuery("");
     setMessage("");
-
     onReset();
   };
 
@@ -133,8 +210,7 @@ const LeftPanel = ({ onDeploy, onReset }) => {
      EXPORT CSV
   ========================= */
   const exportCSV = () => {
-    const headers =
-      "Angle,dB,Ultrasonic,RT60,Classification,Layer\n";
+    const headers = "Angle,dB,Ultrasonic,RT60,Classification,Layer\n";
 
     const rows = filtered
       .filter((r) => r.angle || r.db)
@@ -177,13 +253,37 @@ const LeftPanel = ({ onDeploy, onReset }) => {
     reader.readAsText(file);
   };
 
-  const deployData = () => {
-    console.log("DEPLOY COUNT:", filtered.length);
-    onDeploy(filtered);
-  };
+  const deployData = () => onDeploy(filtered);
+
+  const selectedRow = selectedPoint?.row || null;
+  const selectedFx = selectedPoint?.key ? effectsByKey?.[selectedPoint.key] : null;
+
+  const appliedList = selectedFx?.applied || [];
+  const hasApplied = appliedList.length > 0;
+
+  const zoneKey = selectedPoint?.zone || "neutral";
+  const beforeColor = ZONE_COLORS[zoneKey] || ZONE_COLORS.neutral;
+
+  // AFTER color changes ONLY if hasApplied (match RightPanel logic)
+  let afterColor = beforeColor;
+  if (hasApplied) {
+    const severity = selectedFx?.severity ?? 70;
+    const t = Math.max(0, Math.min(1, severity / 100));
+    afterColor = blendColor(ZONE_COLORS.neutral, beforeColor, t);
+  }
+
+  const dominantName = dominantTreatmentName(
+    appliedList,
+    treatments,
+    bestTreatment?.name || ""
+  );
+
+  const severityVal = selectedFx?.severity ?? 70;
+  const intensityLabel = intensityFromSeverity(severityVal);
 
   return (
     <div className="left-panel">
+      {/* ================= RAW PARAMETERS ================= */}
       <div className="raw-box">
         <h3 className="box-title">RAW PARAMETERS</h3>
 
@@ -193,18 +293,19 @@ const LeftPanel = ({ onDeploy, onReset }) => {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search..."
           />
-          <button className="raw-btn" onClick={handleSearch}>Enter</button>
+          <button className="raw-btn" onClick={handleSearch}>
+            Enter
+          </button>
 
-        {/* SORT OPTIONS */}
-        <select className="raw-btn" onChange={(e) => handleSort(e.target.value)}>
-          <option value="ALL">Sort</option>
-          <option value="HOTSPOT">Hot Spot</option>
-          <option value="DEADSPOT">Dead Spot</option>
-          <option value="Layer 1">Layer 1</option>
-          <option value="Layer 2">Layer 2</option>
-          <option value="Layer 3">Layer 3</option>
-          <option value="Layer 4">Layer 4</option>
-        </select>
+          <select className="raw-btn" onChange={(e) => handleSort(e.target.value)}>
+            <option value="ALL">Sort</option>
+            <option value="HOTSPOT">Hot Spot</option>
+            <option value="DEADSPOT">Dead Spot</option>
+            <option value="Layer 1">Layer 1</option>
+            <option value="Layer 2">Layer 2</option>
+            <option value="Layer 3">Layer 3</option>
+            <option value="Layer 4">Layer 4</option>
+          </select>
         </div>
 
         {message && <p>{message}</p>}
@@ -248,17 +349,18 @@ const LeftPanel = ({ onDeploy, onReset }) => {
 
           <div className="raw-actions-right">
             <input type="file" accept=".csv" hidden id="importLocal" onChange={importLocal} />
-            <button className="raw-btn" onClick={() => document.getElementById("importLocal").click()}>
+            <button
+              className="raw-btn"
+              onClick={() => document.getElementById("importLocal").click()}
+            >
               Import Local
             </button>
-            <button className="raw-btn" onClick={importCloud}>
-              Import Cloud
-            </button>
+            <button className="raw-btn" onClick={importCloud}>Import Cloud</button>
           </div>
         </div>
       </div>
 
-      {/* RT60 ROOM VALUE */}
+      {/* ================= MID ROW ================= */}
       <div className="mid-row">
         <div className="rt60-box">
           <h4 className="box-title">RT60 ROOM VALUE</h4>
@@ -266,7 +368,6 @@ const LeftPanel = ({ onDeploy, onReset }) => {
           <span>Layer 1</span>
         </div>
 
-      {/* LEGEND */}            
         <div className="legend-box">
           <h4 className="box-title">LEGEND</h4>
           <ul>
@@ -277,10 +378,121 @@ const LeftPanel = ({ onDeploy, onReset }) => {
         </div>
       </div>
 
-      {/* RECOMMENDATION */}
+      {/* ================= RECOMMENDATION ================= */}
       <div className="recommend-box">
         <h4 className="box-title">RECOMMENDATION</h4>
-        <p>(Summary)</p>
+
+        <div className="rec-toggle">
+          <button
+            className={`raw-btn rec-toggle-btn ${showAfter ? "muted" : "active"}`}
+            onClick={() => setShowAfter(false)}
+          >
+            BEFORE
+          </button>
+          <button
+            className={`raw-btn rec-toggle-btn ${showAfter ? "active" : "muted"}`}
+            onClick={() => setShowAfter(true)}
+          >
+            AFTER
+          </button>
+        </div>
+
+        {!selectedPoint && (
+          <p className="rec-text">
+            Click a sphere in the 3D room to see the best treatment recommendation.
+            You can also drag a treatment below and drop it onto a sphere.
+          </p>
+        )}
+
+        {selectedPoint && (
+          <div className="rec-details">
+            {/* ✅ FIXED spacing + dots only (no "Before/After" text) */}
+            <div className="rec-zone-row">
+              <div className="rec-zone-left">
+                <span className="rec-label">Selected Zone:</span>
+                <span className="rec-zone-text">{prettyZone(selectedPoint.zone)}</span>
+              </div>
+
+              <div className="rec-zone-right">
+                <span
+                  className="rec-color-dot"
+                  style={{ backgroundColor: beforeColor }}
+                  title="Before"
+                />
+                <span
+                  className="rec-color-dot"
+                  style={{ backgroundColor: afterColor }}
+                  title="After"
+                />
+              </div>
+            </div>
+
+            {selectedRow && (
+              <div className="rec-meta">
+                <div><span className="rec-label">Layer:</span> {selectedRow.layer || "—"}</div>
+                <div><span className="rec-label">Angle:</span> {selectedRow.angle || "—"}</div>
+                <div><span className="rec-label">Ultrasonic:</span> {selectedRow.ultrasonic || "—"}</div>
+                <div><span className="rec-label">dB:</span> {selectedRow.db || "—"}</div>
+                <div><span className="rec-label">RT60:</span> {selectedRow.rt60 || "—"}</div>
+              </div>
+            )}
+
+            {bestTreatment && (
+              <div className="rec-best">
+                <div className="rec-best-title">
+                  Best Recommendation:
+                  <span className="rec-best-name"> {bestTreatment.name}</span>
+                </div>
+                <div className="rec-best-sub">Highest improvement for this zone type</div>
+              </div>
+            )}
+
+            {selectedPoint.key && selectedFx ? (
+              <div className="rec-status">
+                <div>
+                  <span className="rec-label">After Status:</span>{" "}
+                  Severity {severityVal}/100
+                </div>
+
+                <div className="rec-applied">
+                  <span className="rec-label">Applied:</span>{" "}
+                  {hasApplied
+                    ? formatAppliedTreatments(appliedList, treatments).join(", ")
+                    : "—"}
+                </div>
+
+                <div className="rec-intensity">
+                  <span className="rec-label">Treatment Intensity:</span>{" "}
+                  {hasApplied ? `${intensityLabel} (${dominantName} dominant)` : "—"}
+                </div>
+              </div>
+            ) : (
+              <div className="rec-status muted">
+                No treatment applied yet. Drag a treatment below and drop it on this sphere.
+              </div>
+            )}
+          </div>
+        )}
+
+<div className="rec-cards">
+  {treatments.map((t) => (
+    <div
+      key={t.id}
+      className="rec-card"
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData("text/plain", t.id);
+        e.dataTransfer.effectAllowed = "copy";
+      }}
+      title={`Drag ${t.name} onto a sphere`}
+    >
+      <span className="rec-card-icon">{t.icon}</span>
+      <span className="rec-card-label">{t.name}</span>
+    </div>
+  ))}
+</div>
+
+
         <span className="arrow">›</span>
       </div>
     </div>
