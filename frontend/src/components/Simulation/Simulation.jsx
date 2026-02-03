@@ -133,7 +133,7 @@ export default function Simulation() {
 
     // If NOT studio standard, block deployment to the 3D scene
     if (!status.ok) {
-      setDeployedData([]); // clear scene to avoid misleading mapping
+      setDeployedData(data);
       setEffectsByKey({});
       setSelectedPoint(null);
       setShowAfter(true);
