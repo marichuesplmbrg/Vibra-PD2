@@ -116,13 +116,62 @@
   height: 12px;
 }
 
-.dead { background: #4292c6; }   /* ✅ match 3D */
-.hot { background: #e63946; }
-.neutral { background: #2a9d8f; }
+
+/* Legend layout */
+.legend-row {
+  display: flex;
+  gap: 24px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.legend-row li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 24px;
+}
+
+/* Sphere style */
+.legend-dot {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  border-radius: 50%;
+  display: inline-block;
+  transition: transform 0.2s ease;
+}
+
+/* Colors */
+.legend-dot.neutral {
+  background: #ffffff;
+  border: 1px solid #ccc;
+}
+
+.legend-dot.dead {
+  background: #2b6cff;
+}
+
+.legend-dot.hot {
+  background: #d62828;
+}
+
+/* Hover zoom-out effect */
+.legend-dot:hover {
+  transform: scale(1.35);
+}
+
 
 /* RECOMMENDATION */
 .recommend-box {
   background: linear-gradient(135deg, #f08a4b, #ffd166);
+  height: 360px;
+  min-height: 465px;
+  max-height: 465px;       
   border-radius: 26px;
   padding: 30px;
   position: relative;
@@ -135,6 +184,76 @@
   bottom: 20px;
   font-size: 28px;
 }
+
+.recommend-box {
+  position: relative;
+}
+
+/* Arrow buttons */
+.rec-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #1f2937;
+  color: white;
+  border: none;
+  font-size: 22px;
+  padding: 6px 10px;
+  cursor: pointer;
+  border-radius: 6px;
+  opacity: 0.8;
+}
+
+.rec-arrow:hover {
+  opacity: 1;
+}
+
+.rec-arrow:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.rec-arrow.left {
+  left: -15px;
+}
+
+.rec-arrow.right {
+  right: -15px;
+}
+
+/* Recommendation panel: layout adjustment */
+.rec-details {
+  display: flex;
+  gap: 20px; /* space between Best Recommendation and Status */
+  align-items: flex-start;
+  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 18px;
+  padding: 14px;
+  margin-bottom: 14px;
+}
+
+/* Narrow the Best Recommendation card */
+.rec-best {
+  flex: 0 0 200px; /* fixed width */
+  min-width: 180px;
+}
+
+/* Status section next to Best Recommendation */
+.rec-status {
+  flex: 1; /* fill remaining space */
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rec-status > div {
+  display: flex;
+  justify-content: space-between; /* label and value side by side */
+  font-size: 16px;
+}
+
+
 
 /* =========================
    RAW PARAMETERS – TABLE
@@ -401,3 +520,24 @@
 .studio-status.ok { background: rgba(42, 157, 143, 0.25); }
 .studio-status.warn { background: rgba(230, 57, 70, 0.25); }
 .studio-status.neutral { opacity: 0.85; }
+
+.rec-slides {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rec-slide-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.rec-slide-indicator {
+  font-weight: 700;
+  letter-spacing: 2px;
+  opacity: 0.8;
+}
+
+
