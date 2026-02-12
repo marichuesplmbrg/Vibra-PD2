@@ -8,6 +8,7 @@ import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPa
 import "./RightPanel.css";
 
 const CM_TO_M = 0.01;
+const REQUIRED_TREATMENTS = 3; // number of treatments to satisfy a sphere
 
 export default function RightPanel({
   deployedData,
@@ -32,7 +33,6 @@ export default function RightPanel({
   useEffect(() => {
     if (!mountRef.current || !deployedData?.length) return;
 
-    /* ---------- CLEAR ---------- */
     mountRef.current.innerHTML = "";
     spheresRef.current = [];
     sphereByKeyRef.current = {};
@@ -96,7 +96,7 @@ export default function RightPanel({
         const center = new THREE.Vector3();
         geometry.boundingBox.getCenter(center);
         geometry.translate(-center.x, -center.y, -center.z);
-        mesh.rotation.x = -Math.PI / 2;
+        mesh.rotation.set(-Math.PI / 2, 0, Math.PI);
         mesh.scale.setScalar(0.011);
         mesh.position.y = 1.6;
         scene.add(mesh);
@@ -105,17 +105,11 @@ export default function RightPanel({
       console.error("STLLoader error:", err);
     }
 
-    
-
-    /* ==========================================================
-       SPHERES + DIRECTIONAL DISTANCES
-       +Z = North, -Z = South, +X = East, -X = West
-    ========================================================== */
-
-    let north = 0;
-    let south = 0;
-    let east = 0;
-    let west = 0;
+    /* ---------- SPHERES ---------- */
+    let north = 0,
+      south = 0,
+      east = 0,
+      west = 0;
 
     deployedData.forEach((row, index) => {
       const angleDeg = parseFloat(row.angle);
@@ -124,15 +118,12 @@ export default function RightPanel({
 
       const angleRad = THREE.MathUtils.degToRad(angleDeg);
       const radiusM = ultrasonicCm * CM_TO_M;
-
       const layerIndex =
         Number(String(row.layer || "").replace("Layer ", "")) - 1 || 0;
       const y = layerIndex * 0.45 + 0.3;
-
       const x = Math.cos(angleRad) * radiusM;
       const z = Math.sin(angleRad) * radiusM;
 
-      // Directional bounds
       north = Math.max(north, z);
       south = Math.min(south, z);
       east = Math.max(east, x);
@@ -166,21 +157,17 @@ export default function RightPanel({
       sphereByKeyRef.current[key] = sphere;
     });
 
-      const addBox = ({ w, h, d, x, y, z, color = 0x555555 }) => {
+    /* ---------- WALLS & FURNITURE ---------- */
+    const addBox = ({ w, h, d, x, y, z, color = 0x555555 }) => {
       const mat = new THREE.MeshStandardMaterial({
         color,
         roughness: 0.6,
         metalness: 0.2,
       });
-
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
       mesh.position.set(x, y + h / 2, z);
       scene.add(mesh);
     };
-
-    /* ==========================================================
-       WALLS — BASED ON N / S / E / W
-    ========================================================== */
 
     const MARGIN_M = 0.3;
     const WALL_HEIGHT_M = 4;
@@ -193,7 +180,6 @@ export default function RightPanel({
 
     const roomWidth = eastX - westX;
     const roomDepth = northZ - southZ;
-
     const cx = (eastX + westX) / 2;
     const cz = (northZ + southZ) / 2;
 
@@ -203,7 +189,6 @@ export default function RightPanel({
       opacity: 0.35,
       side: THREE.DoubleSide,
     });
-
     const wallGridMat = new THREE.MeshBasicMaterial({
       color: 0x000000,
       wireframe: true,
@@ -214,84 +199,34 @@ export default function RightPanel({
       const wall = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallMat);
       wall.position.set(x, y, z);
       scene.add(wall);
-
       const grid = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallGridMat);
       grid.position.set(x, y, z);
       scene.add(grid);
     };
 
-    // North (+Z)
     addWall(roomWidth, WALL_HEIGHT_M, WALL_THICKNESS_M, cx, WALL_HEIGHT_M / 2, northZ);
-    // South (-Z)
     addWall(roomWidth, WALL_HEIGHT_M, WALL_THICKNESS_M, cx, WALL_HEIGHT_M / 2, southZ);
-    // East (+X)
     addWall(WALL_THICKNESS_M, WALL_HEIGHT_M, roomDepth, eastX, WALL_HEIGHT_M / 2, cz);
-    // West (-X)
     addWall(WALL_THICKNESS_M, WALL_HEIGHT_M, roomDepth, westX, WALL_HEIGHT_M / 2, cz);
 
-    /* ==========================================================
-      SIMPLE FURNITURE / PROPS
-    ========================================================== */
-
-    // Chair (near south wall)
-    addBox({
-      w: 0.45,
-      h: 0.9,
-      d: 0.45,
-      x: cx - 0.8,
-      y: 0,
-      z: southZ + 0.35,
-      color: 0x6b4f3f,
-    });
-
-    // Cabinet (east wall)
-    addBox({
-      w: 0.6,
-      h: 1.4,
-      d: 0.45,
-      x: eastX - 0.35,
-      y: 0,
-      z: cz - 0.6,
-      color: 0x3a3a3a,
-    });
-
-    // Bench / low table (west wall)
-    addBox({
-      w: 1.2,
-      h: 0.4,
-      d: 0.45,
-      x: westX + 0.6,
-      y: 0,
-      z: cz + 0.5,
-      color: 0x4a5d73,
-    });
-
-    // Equipment box (north wall)
-    addBox({
-      w: 0.8,
-      h: 0.6,
-      d: 0.5,
-      x: cx + 0.7,
-      y: 0,
-      z: northZ - 0.4,
-      color: 0x2f2f2f,
-    });
-
+    // furniture
+    addBox({ w: 0.45, h: 0.9, d: 0.45, x: cx - 0.8, y: 0, z: southZ + 0.35, color: 0x6b4f3f });
+    addBox({ w: 0.6, h: 1.4, d: 0.45, x: eastX - 0.35, y: 0, z: cz - 0.6, color: 0x3a3a3a });
+    addBox({ w: 1.2, h: 0.4, d: 0.45, x: westX + 0.6, y: 0, z: cz + 0.5, color: 0x4a5d73 });
+    addBox({ w: 0.8, h: 0.6, d: 0.5, x: cx + 0.7, y: 0, z: northZ - 0.4, color: 0x2f2f2f });
 
     const addBaseboard = (w, x, z, isHorizontal = true) => {
-    const mesh = new THREE.Mesh(
-      new THREE.BoxGeometry(isHorizontal ? w : 0.05, 0.08, isHorizontal ? 0.05 : w),
-      new THREE.MeshStandardMaterial({ color: 0x111111 })
-    );
-    mesh.position.set(x, 0.04, z);
-    scene.add(mesh);
-  };
-
+      const mesh = new THREE.Mesh(
+        new THREE.BoxGeometry(isHorizontal ? w : 0.05, 0.08, isHorizontal ? 0.05 : w),
+        new THREE.MeshStandardMaterial({ color: 0x111111 })
+      );
+      mesh.position.set(x, 0.04, z);
+      scene.add(mesh);
+    };
     addBaseboard(roomWidth, cx, northZ - 0.03, true);
     addBaseboard(roomWidth, cx, southZ + 0.03, true);
     addBaseboard(roomDepth, eastX - 0.03, cz, false);
     addBaseboard(roomDepth, westX + 0.03, cz, false);
-
 
     /* ---------- CAMERA FRAMING ---------- */
     const maxDim = Math.max(roomWidth, roomDepth);
@@ -344,6 +279,26 @@ export default function RightPanel({
       if (hit) onSelectSphere(hit.userData);
     });
 
+    /* ---------- DRAG & DROP ---------- */
+    canvas.addEventListener("dragover", (e) => e.preventDefault());
+
+    canvas.addEventListener("drop", (e) => {
+      e.preventDefault();
+      const treatmentId = e.dataTransfer.getData("text/plain");
+      if (!treatmentId) return;
+
+      const rect = canvas.getBoundingClientRect();
+      mouseNdcRef.current.set(
+        ((e.clientX - rect.left) / rect.width) * 2 - 1,
+        -((e.clientY - rect.top) / rect.height) * 2 + 1
+      );
+      raycasterRef.current.setFromCamera(mouseNdcRef.current, camera);
+      const hit = raycasterRef.current.intersectObjects(spheresRef.current)[0]?.object;
+      if (!hit) return;
+
+      onApplyTreatment(hit.userData.key, treatmentId);
+    });
+
     /* ---------- ANIMATE ---------- */
     let running = true;
     const animate = () => {
@@ -361,29 +316,37 @@ export default function RightPanel({
     };
   }, [deployedData, makePointKey, normalizeZone, onApplyTreatment, onSelectSphere]);
 
-  /* ---------- BEFORE / AFTER ---------- */
+  /* ---------- BEFORE / AFTER + SATISFIED ---------- */
   useEffect(() => {
     Object.values(sphereByKeyRef.current).forEach((s) => {
       const base = new THREE.Color(s.userData.baseColor);
+      const fx = effectsByKey?.[s.userData.key];
+      const appliedCount = fx?.applied?.length || 0;
+      const satisfied = appliedCount >= REQUIRED_TREATMENTS;
 
-      if (!showAfter) {
+      if (satisfied) {
+        s.material.color.set(0xffffff);
+        s.material.emissive.set(0xffffff);
+        s.material.emissiveIntensity = 0.6;
+      } else if (!showAfter) {
         s.material.color.copy(base);
         s.material.emissive.copy(base);
         s.material.emissiveIntensity = 1.1;
       } else {
-        const fx = effectsByKey?.[s.userData.key];
-        if (!fx?.applied?.length) return;
-
-        const t = Math.min(1, (fx.severity ?? 70) / 100);
+        const t = Math.min(1, (fx?.severity ?? 70) / 100);
         const neutral = new THREE.Color(0x2a9d8f);
         const blend = neutral.clone().lerp(base, t);
-
         s.material.color.copy(blend);
         s.material.emissive.copy(blend);
         s.material.emissiveIntensity = 0.35 + t * 0.5;
       }
 
       s.scale.setScalar(selectedPoint?.key === s.userData.key ? 1.35 : 1);
+
+      if (s.userData.applied?.length >= 3) {
+        s.material.color.set(0xffffff); // turn white if ≥ 3 treatments
+        s.material.emissive.set(0xffffff);
+}
     });
   }, [effectsByKey, showAfter, selectedPoint]);
 
