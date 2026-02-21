@@ -128,8 +128,8 @@ const LeftPanel = ({
       .split("\n")
       .slice(1)
       .map((line) => {
-        const [angle, db, rt60, ultrasonic, classification] = line.split(",");
-        return { angle, db, rt60, ultrasonic, classification, layer: layerName };
+        const [angle, db, ultrasonic, rt60, classification] = line.split(",");
+        return { angle, db, ultrasonic, rt60, classification, layer: layerName };
       });
 
     combined = combined.concat(rows);
@@ -292,9 +292,15 @@ const LeftPanel = ({
                 <tr key={i}>
                   <td>{row.angle || row.db ? i + 1 : ""}</td>
                   <td>{row.angle}</td>
-                  <td>{row.db}</td>
-                  <td>{row.ultrasonic}</td>
-                  <td>{row.rt60}</td>
+                  <td> 
+                    {row.db ? `${row.db} db` : ""}
+                  </td>
+                  <td>
+                    {row.ultrasonic ? `${row.ultrasonic} cm` : ""}
+                  </td>
+                  <td>
+                    {row.rt60 ? `${row.rt60} ms` : ""}
+                  </td>
                   <td>{row.classification}</td>
                   <td>{row.layer}</td>
                 </tr>
@@ -334,170 +340,169 @@ const LeftPanel = ({
       </div>
 
       {/* ========== RECOMMENDATION PANEL ========== */}
-      {/* ========== RECOMMENDATION PANEL ========== */}
-<div className="recommend-box">
-  <h4 className="box-title">RECOMMENDATION</h4>
+      <div className="recommend-box">
+        <h4 className="box-title">RECOMMENDATION</h4>
 
-  {/* SLIDE ARROWS */}
-  <button
-    className="rec-arrow left"
-    onClick={() => setRecSlide(0)}
-    disabled={recSlide === 0}
-  >
-    ‹
-  </button>
-
-  <button
-    className="rec-arrow right"
-    onClick={() => setRecSlide(1)}
-    disabled={recSlide === 1}
-  >
-    ›
-  </button>
-
-
-  {/* ================= SLIDE 1 : SPHERE INFO ================= */}
-  {recSlide === 0 && (
-    <>
-      <div className="rec-toggle">
+        {/* SLIDE ARROWS */}
         <button
-          className={`raw-btn rec-toggle-btn ${showAfter ? "muted" : "active"}`}
-          onClick={() => setShowAfter(false)}
+          className="rec-arrow left"
+          onClick={() => setRecSlide(0)}
+          disabled={recSlide === 0}
         >
-          BEFORE
+          ‹
         </button>
 
         <button
-          className={`raw-btn rec-toggle-btn ${showAfter ? "active" : "muted"}`}
-          onClick={() => setShowAfter(true)}
+          className="rec-arrow right"
+          onClick={() => setRecSlide(1)}
+          disabled={recSlide === 1}
         >
-          AFTER
+          ›
         </button>
+
+
+        {/* ================= SLIDE 1 : SPHERE INFO ================= */}
+        {recSlide === 0 && (
+          <>
+            <div className="rec-toggle">
+              <button
+                className={`raw-btn rec-toggle-btn ${showAfter ? "muted" : "active"}`}
+                onClick={() => setShowAfter(false)}
+              >
+                BEFORE
+              </button>
+
+              <button
+                className={`raw-btn rec-toggle-btn ${showAfter ? "active" : "muted"}`}
+                onClick={() => setShowAfter(true)}
+              >
+                AFTER
+              </button>
+            </div>
+
+            {!selectedPoint && (
+              <p className="rec-text">
+                Click a sphere in the 3D room to see the best treatment recommendation.
+              </p>
+            )}
+
+            {selectedPoint && (
+              <div className="rec-details">
+
+                {/* Selected Zone */}
+                <div className="rec-zone-row">
+                  <div className="rec-zone-left">
+                    <span className="rec-label">Selected Zone:</span>
+                    <span className="rec-zone-text">
+                      {prettyZone(selectedPoint.zone)}
+                    </span>
+                  </div>
+
+                  <div className="rec-zone-right">
+                    <span
+                      className="rec-color-dot"
+                      style={{ backgroundColor: beforeColor }}
+                    />
+                    <span
+                      className="rec-color-dot"
+                      style={{ backgroundColor: afterColor }}
+                    />
+                  </div>
+                </div>
+
+                {/* Meta Info */}
+                {selectedRow && (
+                  <div className="rec-meta">
+                    <div><span className="rec-label">Layer:</span> {selectedRow.layer || "—"}</div>
+                    <div><span className="rec-label">Angle:</span> {selectedRow.angle || "—"}</div>
+                    <div><span className="rec-label">Ultrasonic:</span> {selectedRow.ultrasonic || "—"}</div>
+                    <div><span className="rec-label">dB:</span> {selectedRow.db || "—"}</div>
+                    <div><span className="rec-label">RT60:</span> {selectedRow.rt60 || "—"}</div>
+                  </div>
+                )}
+
+                {/* Best Treatment */}
+                {bestTreatment && (
+                  <div className="rec-best">
+                    <div className="rec-best-title">
+                      Best Recommendation:
+                      <span className="rec-best-name">
+                        {bestTreatment.name}
+                      </span>
+                    </div>
+
+                    <div className="rec-best-sub">
+                      Highest improvement for this zone type
+                    </div>
+                  </div>
+                )}
+
+                {/* Status */}
+                {selectedPoint.key && selectedFx ? (
+                  <div className="rec-status">
+
+                    <div>
+                      <span className="rec-label">After Status:</span>{" "}
+                      Severity {severityVal}/100
+                    </div>
+
+                    <div className="rec-applied">
+                      <span className="rec-label">Applied:</span>{" "}
+                      {hasApplied
+                        ? formatAppliedTreatments(appliedList, treatments).join(", ")
+                        : "—"}
+                    </div>
+
+                    <div className="rec-intensity">
+                      <span className="rec-label">Treatment Intensity:</span>{" "}
+                      {hasApplied
+                        ? `${intensityLabel} (${dominantName} dominant)`
+                        : "—"}
+                    </div>
+
+                  </div>
+                ) : (
+                  <div className="rec-status muted">
+                    No treatment applied yet.
+                  </div>
+                )}
+
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ================= SLIDE 2 : DEVICES ================= */}
+        {recSlide === 1 && (
+          <>
+            <p className="rec-text">
+              Drag a device and drop it onto a sphere in the 3D simulation.
+            </p>
+
+            <div className="rec-cards">
+              {treatments.map((t) => (
+                <div
+                  key={t.id}
+                  className="rec-card"
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData("text/plain", t.id);
+                    e.dataTransfer.effectAllowed = "copy";
+                  }}
+                  title={`Drag ${t.name}`}
+                >
+                  <span className="rec-card-icon">{t.icon}</span>
+                  <span className="rec-card-label">{t.name}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
       </div>
 
-      {!selectedPoint && (
-        <p className="rec-text">
-          Click a sphere in the 3D room to see the best treatment recommendation.
-        </p>
-      )}
-
-      {selectedPoint && (
-        <div className="rec-details">
-
-          {/* Selected Zone */}
-          <div className="rec-zone-row">
-            <div className="rec-zone-left">
-              <span className="rec-label">Selected Zone:</span>
-              <span className="rec-zone-text">
-                {prettyZone(selectedPoint.zone)}
-              </span>
-            </div>
-
-            <div className="rec-zone-right">
-              <span
-                className="rec-color-dot"
-                style={{ backgroundColor: beforeColor }}
-              />
-              <span
-                className="rec-color-dot"
-                style={{ backgroundColor: afterColor }}
-              />
-            </div>
-          </div>
-
-          {/* Meta Info */}
-          {selectedRow && (
-            <div className="rec-meta">
-              <div><span className="rec-label">Layer:</span> {selectedRow.layer || "—"}</div>
-              <div><span className="rec-label">Angle:</span> {selectedRow.angle || "—"}</div>
-              <div><span className="rec-label">Ultrasonic:</span> {selectedRow.ultrasonic || "—"}</div>
-              <div><span className="rec-label">dB:</span> {selectedRow.db || "—"}</div>
-              <div><span className="rec-label">RT60:</span> {selectedRow.rt60 || "—"}</div>
-            </div>
-          )}
-
-          {/* Best Treatment */}
-          {bestTreatment && (
-            <div className="rec-best">
-              <div className="rec-best-title">
-                Best Recommendation:
-                <span className="rec-best-name">
-                  {bestTreatment.name}
-                </span>
-              </div>
-
-              <div className="rec-best-sub">
-                Highest improvement for this zone type
-              </div>
-            </div>
-          )}
-
-          {/* Status */}
-          {selectedPoint.key && selectedFx ? (
-            <div className="rec-status">
-
-              <div>
-                <span className="rec-label">After Status:</span>{" "}
-                Severity {severityVal}/100
-              </div>
-
-              <div className="rec-applied">
-                <span className="rec-label">Applied:</span>{" "}
-                {hasApplied
-                  ? formatAppliedTreatments(appliedList, treatments).join(", ")
-                  : "—"}
-              </div>
-
-              <div className="rec-intensity">
-                <span className="rec-label">Treatment Intensity:</span>{" "}
-                {hasApplied
-                  ? `${intensityLabel} (${dominantName} dominant)`
-                  : "—"}
-              </div>
-
-            </div>
-          ) : (
-            <div className="rec-status muted">
-              No treatment applied yet.
-            </div>
-          )}
-
-        </div>
-      )}
-    </>
-  )}
-
-  {/* ================= SLIDE 2 : DEVICES ================= */}
-  {recSlide === 1 && (
-    <>
-      <p className="rec-text">
-        Drag a device and drop it onto a sphere in the 3D simulation.
-      </p>
-
-      <div className="rec-cards">
-        {treatments.map((t) => (
-          <div
-            key={t.id}
-            className="rec-card"
-            draggable
-            onDragStart={(e) => {
-              e.dataTransfer.setData("text/plain", t.id);
-              e.dataTransfer.effectAllowed = "copy";
-            }}
-            title={`Drag ${t.name}`}
-          >
-            <span className="rec-card-icon">{t.icon}</span>
-            <span className="rec-card-label">{t.name}</span>
-          </div>
-        ))}
-      </div>
-    </>
-  )}
-</div>
-</div>
-
-  );
-};
+        );
+      };
 
 
 export default LeftPanel;
