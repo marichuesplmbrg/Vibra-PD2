@@ -208,26 +208,7 @@ export default function RightPanel({
     addWall(roomWidth, WALL_HEIGHT_M, WALL_THICKNESS_M, cx, WALL_HEIGHT_M / 2, southZ);
     addWall(WALL_THICKNESS_M, WALL_HEIGHT_M, roomDepth, eastX, WALL_HEIGHT_M / 2, cz);
     addWall(WALL_THICKNESS_M, WALL_HEIGHT_M, roomDepth, westX, WALL_HEIGHT_M / 2, cz);
-
-    // furniture
-    addBox({ w: 0.45, h: 0.9, d: 0.45, x: cx - 0.8, y: 0, z: southZ + 0.35, color: 0x6b4f3f });
-    addBox({ w: 0.6, h: 1.4, d: 0.45, x: eastX - 0.35, y: 0, z: cz - 0.6, color: 0x3a3a3a });
-    addBox({ w: 1.2, h: 0.4, d: 0.45, x: westX + 0.6, y: 0, z: cz + 0.5, color: 0x4a5d73 });
-    addBox({ w: 0.8, h: 0.6, d: 0.5, x: cx + 0.7, y: 0, z: northZ - 0.4, color: 0x2f2f2f });
-
-    const addBaseboard = (w, x, z, isHorizontal = true) => {
-      const mesh = new THREE.Mesh(
-        new THREE.BoxGeometry(isHorizontal ? w : 0.05, 0.08, isHorizontal ? 0.05 : w),
-        new THREE.MeshStandardMaterial({ color: 0x111111 })
-      );
-      mesh.position.set(x, 0.04, z);
-      scene.add(mesh);
-    };
-    addBaseboard(roomWidth, cx, northZ - 0.03, true);
-    addBaseboard(roomWidth, cx, southZ + 0.03, true);
-    addBaseboard(roomDepth, eastX - 0.03, cz, false);
-    addBaseboard(roomDepth, westX + 0.03, cz, false);
-
+    
     /* ---------- CAMERA FRAMING ---------- */
     const maxDim = Math.max(roomWidth, roomDepth);
     camera.position.set(cx, maxDim * 0.9, cz + maxDim * 1.3);
